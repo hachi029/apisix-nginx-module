@@ -9,6 +9,7 @@
 #define NGX_HTTP_APISIX_SSL_SIGN    2
 
 
+//本模块在main级别的配置结构体
 typedef struct {
     ngx_flag_t      enable_ntls;
 } ngx_http_apisix_main_conf_t;
@@ -42,7 +43,7 @@ static ngx_command_t ngx_http_apisix_cmds[] = {
       offsetof(ngx_http_apisix_loc_conf_t, delay_client_max_body_check),
       NULL },
     {
-        ngx_string("lua_error_log_request_id"),
+        ngx_string("lua_error_log_request_id"),     //lua_error_log_request_id $http_xxxxId, 将会在error_log最后添加request_id字段
         NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
         ngx_http_apisix_error_log_request_id,
         NGX_HTTP_LOC_CONF_OFFSET,
@@ -54,15 +55,19 @@ static ngx_command_t ngx_http_apisix_cmds[] = {
 
 static ngx_http_module_t ngx_http_apisix_module_ctx = {
     NULL,                                    /* preconfiguration */
+    //在POST_READ_PHASE安装了一个handler  ngx_http_apisix_replace_error_log_handler
     ngx_http_apisix_init,                    /* postconfiguration */
 
+    //只是创建配置结构体 ngx_http_apisix_main_conf_t
     ngx_http_apisix_create_main_conf,        /* create main configuration */
     NULL,                                    /* init main configuration */
 
     NULL,                                    /* create server configuration */
     NULL,                                    /* merge server configuration */
 
+    //创建loc级别的配置结构体：ngx_http_apisix_loc_conf_t
     ngx_http_apisix_create_loc_conf,         /* create location configuration */
+    //合并配置，因为在SRV和LOC都有配置
     ngx_http_apisix_merge_loc_conf           /* merge location configuration */
 };
 
@@ -82,7 +87,9 @@ ngx_module_t ngx_http_apisix_module = {
     NGX_MODULE_V1_PADDING
 };
 
-
+/**
+ * 创建main级别配置结构体
+ */
 static void *
 ngx_http_apisix_create_main_conf(ngx_conf_t *cf)
 {
@@ -102,6 +109,9 @@ ngx_http_apisix_create_main_conf(ngx_conf_t *cf)
     return acf;
 }
 
+/**
+ * 创建loc级别配置结构体
+ */
 static void *
 ngx_http_apisix_create_loc_conf(ngx_conf_t *cf)
 {
@@ -118,6 +128,9 @@ ngx_http_apisix_create_loc_conf(ngx_conf_t *cf)
 }
 
 
+/**
+ * 合并loc级别配置结构体
+ */
 static char *
 ngx_http_apisix_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
 {
@@ -169,7 +182,9 @@ ngx_http_apisix_cleanup_trusted_store(ngx_http_apisix_ctx_t *ctx)
 }
 #endif
 
-
+/**
+ * 请求结束时调用，清理函数
+ */
 static void
 ngx_http_apisix_cleanup(void *data)
 {
@@ -181,7 +196,10 @@ ngx_http_apisix_cleanup(void *data)
 #endif
 }
 
-
+/**
+ * 1.获取模块的自定义上下文，ngx_http_apisix_ctx_t 如果不存在，就新建一个
+ * 2.注册了一个ngx_http_apisix_cleanup方法，在r-pool上
+ */
 static ngx_http_apisix_ctx_t *
 ngx_http_apisix_get_module_ctx(ngx_http_request_t *r)
 {
@@ -190,7 +208,7 @@ ngx_http_apisix_get_module_ctx(ngx_http_request_t *r)
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_apisix_module);
 
-    if (ctx == NULL) {
+    if (ctx == NULL) {      //如果不存在，则创建一个ctx
         ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_apisix_ctx_t));
         if (ctx == NULL) {
             return NULL;
@@ -202,7 +220,7 @@ ngx_http_apisix_get_module_ctx(ngx_http_request_t *r)
         }
 
         cln->data = ctx;
-        cln->handler = ngx_http_apisix_cleanup;
+        cln->handler = ngx_http_apisix_cleanup;     //注册清理函数
 
         ngx_http_set_ctx(r, ctx, ngx_http_apisix_module);
     }
@@ -555,7 +573,9 @@ ngx_http_apisix_set_gzip(ngx_http_request_t *r, ngx_int_t num, size_t size,
     return NGX_OK;
 }
 
-
+/**
+ * 找到变量，让后将其valid设置为0， 下次获取变量会触发重新解析
+ */
 ngx_int_t
 ngx_http_apisix_flush_var(ngx_http_request_t *r, ngx_str_t *name)
 {
@@ -603,6 +623,7 @@ ngx_http_apisix_set_real_ip(ngx_http_request_t *r, const u_char *text, size_t le
         return rc;
     }
 
+    //强制重新解析变量
     ngx_http_apisix_flush_var(r, &remote_addr);
     ngx_http_apisix_flush_var(r, &remote_port);
     ngx_http_apisix_flush_var(r, &realip_remote_addr);
@@ -611,7 +632,9 @@ ngx_http_apisix_set_real_ip(ngx_http_request_t *r, const u_char *text, size_t le
     return NGX_OK;
 }
 
-
+/**
+ * 实时配置mirror_enabled
+ */
 ngx_int_t
 ngx_http_apisix_enable_mirror(ngx_http_request_t *r)
 {
@@ -627,7 +650,9 @@ ngx_http_apisix_enable_mirror(ngx_http_request_t *r)
     return NGX_OK;
 }
 
-
+/**
+ * 获取配置项 mirror_enabled
+ */
 ngx_int_t
 ngx_http_apisix_is_mirror_enabled(ngx_http_request_t *r)
 {
@@ -637,7 +662,11 @@ ngx_http_apisix_is_mirror_enabled(ngx_http_request_t *r)
     return ctx != NULL && ctx->mirror_enabled;
 }
 
-
+/**
+ * 设置配置项
+ * ctx->request_buffering = on;
+   ctx->request_buffering_set = 1;
+ */
 ngx_int_t
 ngx_http_apisix_set_proxy_request_buffering(ngx_http_request_t *r, int on)
 {
@@ -654,7 +683,9 @@ ngx_http_apisix_set_proxy_request_buffering(ngx_http_request_t *r, int on)
     return NGX_OK;
 }
 
-
+/**
+ * 获取配置项 ctx->request_buffering;
+ */
 ngx_int_t
 ngx_http_apisix_is_request_buffering(ngx_http_request_t *r, ngx_flag_t static_conf)
 {
@@ -935,6 +966,9 @@ ngx_http_apisix_is_ntls_enabled(ngx_http_conf_ctx_t *conf_ctx)
 }
 
 /*******************Log handler***************** */
+/**
+ * 在原始的日志后append request_id: $request_id
+ */
 static u_char*
 ngx_http_apisix_error_log_handler(ngx_http_request_t *r, u_char *buf, size_t len)
 {
@@ -946,6 +980,7 @@ ngx_http_apisix_error_log_handler(ngx_http_request_t *r, u_char *buf, size_t len
         return buf;
     }
 
+    //获取request_id值
     request_id_var = ngx_http_get_indexed_variable(r, loc_conf->apisix_request_id_var_index);
     if (request_id_var == NULL || request_id_var->not_found) {
         return buf;
@@ -954,7 +989,9 @@ ngx_http_apisix_error_log_handler(ngx_http_request_t *r, u_char *buf, size_t len
     return buf;
 }
 
-
+/**
+ * 在NGX_HTTP_POST_READ_PHASE 阶段将r->log_handler重写为此方法
+ */
 static u_char*
 ngx_http_apisix_combined_error_log_handler(ngx_http_request_t *r, ngx_http_request_t *sr, u_char *buf, size_t len)
 {
@@ -966,6 +1003,7 @@ ngx_http_apisix_combined_error_log_handler(ngx_http_request_t *r, ngx_http_reque
         return buf;
     }
 
+    //先调用原始的log_handler
     //Get the original log message
     p = ctx->orig_log_handler(r, sr, buf, len);
     //p - buf calculates the number of bytes written by the original log handler into the buffer.
@@ -973,17 +1011,25 @@ ngx_http_apisix_combined_error_log_handler(ngx_http_request_t *r, ngx_http_reque
     len -= p-buf;
     buf = p;
 
-    //Apisix log handler
+    //再调用apisix的log_handler
+
+    //Apisix log handler ， append request_id: $request_id
     buf = ngx_http_apisix_error_log_handler(r, buf, len);
     return buf;
 }
 
-
+/**
+ * NGX_HTTP_POST_READ_PHASE 阶段 handler
+ * 
+ * 重写r-log_handler为ngx_http_apisix_combined_error_log_handler
+ * 
+ */
 static ngx_int_t
 ngx_http_apisix_replace_error_log_handler(ngx_http_request_t *r)
 {
     ngx_http_apisix_ctx_t *ctx;
 
+    //获取模块上下文
     ctx = ngx_http_apisix_get_module_ctx(r);
     if (ctx == NULL) {
         return NGX_ERROR;
@@ -1004,7 +1050,9 @@ ngx_http_apisix_replace_error_log_handler(ngx_http_request_t *r)
     return NGX_DECLINED;
 }
 
-
+/**
+ * 安装NGX_HTTP_POST_READ_PHASE阶段handler
+ */
 char *
 ngx_http_apisix_error_log_init(ngx_conf_t *cf)
 {
@@ -1024,7 +1072,9 @@ ngx_http_apisix_error_log_init(ngx_conf_t *cf)
     return NGX_CONF_OK;
 }
 
-
+/**
+ * 解析配置项 lua_error_log_request_id
+ */
 char * 
 ngx_http_apisix_error_log_request_id(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
@@ -1037,9 +1087,11 @@ ngx_http_apisix_error_log_request_id(ngx_conf_t *cf, ngx_command_t *cmd, void *c
         return NGX_CONF_ERROR;
     }
 
+    //去掉$字符
     value[1].len--;
     value[1].data++;
 
+    //获取request_id_var_index
     loc_conf->apisix_request_id_var_index = ngx_http_get_variable_index(cf, &value[1]);
     if (loc_conf->apisix_request_id_var_index == NGX_ERROR) {
         return NGX_CONF_ERROR;

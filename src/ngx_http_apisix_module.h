@@ -7,7 +7,7 @@
 
 typedef struct {
     ngx_flag_t      delay_client_max_body_check;
-    ngx_int_t       apisix_request_id_var_index;
+    ngx_int_t       apisix_request_id_var_index;        //request_id变量的索引值
 
 } ngx_http_apisix_loc_conf_t;
 
@@ -18,7 +18,9 @@ typedef struct {
     ngx_int_t       level;
 } ngx_http_apisix_gzip_t;
 
-
+/**
+ * 模块自定义上下文
+ */
 typedef struct {
     STACK_OF(X509)      *upstream_cert;
     EVP_PKEY            *upstream_pkey;
