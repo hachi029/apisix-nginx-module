@@ -36,6 +36,7 @@ ngx_http_apisix_init(ngx_conf_t *cf)
 }
 
 static ngx_command_t ngx_http_apisix_cmds[] = {
+    //延迟请求体大小检查从post_read至读取请求体时
     { ngx_string("apisix_delay_client_max_body_check"),
       NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_FLAG,
       ngx_conf_set_flag_slot,
@@ -43,7 +44,8 @@ static ngx_command_t ngx_http_apisix_cmds[] = {
       offsetof(ngx_http_apisix_loc_conf_t, delay_client_max_body_check),
       NULL },
     {
-        ngx_string("lua_error_log_request_id"),     //lua_error_log_request_id $http_xxxxId, 将会在error_log最后添加request_id字段
+        //lua_error_log_request_id $http_xxxxId, 将会在error_log最后添加request_id字段
+        ngx_string("lua_error_log_request_id"),
         NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
         ngx_http_apisix_error_log_request_id,
         NGX_HTTP_LOC_CONF_OFFSET,
@@ -440,6 +442,9 @@ ngx_http_apisix_get_upstream_ssl_verify(ngx_http_request_t *r, ngx_flag_t proxy_
 #endif
 
 
+/**
+ * 延迟client_max_body_check。 参考 nginx-client_max_body_size.patch
+ */
 ngx_flag_t
 ngx_http_apisix_delay_client_max_body_check(ngx_http_request_t *r)
 {
@@ -450,6 +455,9 @@ ngx_http_apisix_delay_client_max_body_check(ngx_http_request_t *r)
 }
 
 
+/**
+ * 设置配置项 clcf->client_max_body_size
+ */
 ngx_int_t
 ngx_http_apisix_client_set_max_body_size(ngx_http_request_t *r,
                                          off_t bytes)
@@ -473,6 +481,9 @@ ngx_http_apisix_client_set_max_body_size(ngx_http_request_t *r,
 }
 
 
+/**
+ * 获取 配置项 clcf->client_max_body_size
+ */
 off_t
 ngx_http_apisix_client_max_body_size(ngx_http_request_t *r)
 {
@@ -494,6 +505,9 @@ ngx_http_apisix_client_max_body_size(ngx_http_request_t *r)
 }
 
 
+/**
+ * get configuration ctx->gzip
+ */
 ngx_int_t
 ngx_http_apisix_is_gzip_set(ngx_http_request_t *r)
 {
@@ -510,6 +524,9 @@ ngx_http_apisix_is_gzip_set(ngx_http_request_t *r)
 }
 
 
+/**
+ * get_gzip_buffer_conf
+ */
 ngx_int_t
 ngx_http_apisix_get_gzip_buffer_conf(ngx_http_request_t *r, ngx_int_t *num,
     size_t *size)
@@ -531,6 +548,9 @@ ngx_http_apisix_get_gzip_buffer_conf(ngx_http_request_t *r, ngx_int_t *num,
 }
 
 
+/**
+ * get_gzip_compress_level
+ */
 ngx_int_t
 ngx_http_apisix_get_gzip_compress_level(ngx_http_request_t *r)
 {
@@ -548,6 +568,9 @@ ngx_http_apisix_get_gzip_compress_level(ngx_http_request_t *r)
 }
 
 
+/**
+ * set_gzip
+ */
 ngx_int_t
 ngx_http_apisix_set_gzip(ngx_http_request_t *r, ngx_int_t num, size_t size,
     ngx_int_t level)
@@ -601,6 +624,9 @@ ngx_http_apisix_flush_var(ngx_http_request_t *r, ngx_str_t *name)
 }
 
 
+/**
+ * set_real_ip
+ */
 ngx_int_t
 ngx_http_apisix_set_real_ip(ngx_http_request_t *r, const u_char *text, size_t len,
                             unsigned int port)
@@ -663,6 +689,9 @@ ngx_http_apisix_is_mirror_enabled(ngx_http_request_t *r)
 }
 
 /**
+ * 
+ * https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_request_buffering
+ * 
  * 设置配置项
  * ctx->request_buffering = on;
    ctx->request_buffering_set = 1;
@@ -717,6 +746,9 @@ ngx_http_apisix_is_request_header_set(ngx_http_request_t *r)
 }
 
 
+/**
+ * ctx->request_header_set = 0;
+ */
 void
 ngx_http_apisix_clear_request_header(ngx_http_request_t *r)
 {
@@ -730,6 +762,9 @@ ngx_http_apisix_clear_request_header(ngx_http_request_t *r)
 }
 
 
+/**
+ * ctx->request_header_set = 1;
+ */
 void
 ngx_http_apisix_mark_request_header_set(ngx_http_request_t *r)
 {
@@ -745,6 +780,9 @@ ngx_http_apisix_mark_request_header_set(ngx_http_request_t *r)
 }
 
 
+/**
+ * ctx->header_filter_by_lua_skipped = 1;
+ */
 ngx_int_t
 ngx_http_apisix_skip_header_filter_by_lua(ngx_http_request_t *r)
 {
@@ -760,6 +798,9 @@ ngx_http_apisix_skip_header_filter_by_lua(ngx_http_request_t *r)
 }
 
 
+/**
+ * get ctx->header_filter_by_lua_skipped;
+ */
 ngx_int_t
 ngx_http_apisix_is_header_filter_by_lua_skipped(ngx_http_request_t *r)
 {
@@ -777,7 +818,9 @@ ngx_http_apisix_is_header_filter_by_lua_skipped(ngx_http_request_t *r)
     return 0;
 }
 
-
+/**
+ * set ctx->body_filter_by_lua_skipped
+ */
 ngx_int_t
 ngx_http_apisix_skip_body_filter_by_lua(ngx_http_request_t *r)
 {
@@ -793,6 +836,9 @@ ngx_http_apisix_skip_body_filter_by_lua(ngx_http_request_t *r)
 }
 
 
+/**
+ * get ctx->body_filter_by_lua_skipped
+ */
 ngx_int_t
 ngx_http_apisix_is_body_filter_by_lua_skipped(ngx_http_request_t *r)
 {
@@ -945,6 +991,9 @@ failed:
 }
 
 
+/**
+ * set  enable_ntls
+ */
 int
 ngx_http_apisix_enable_ntls(ngx_http_request_t *r, int enabled)
 {
@@ -956,6 +1005,9 @@ ngx_http_apisix_enable_ntls(ngx_http_request_t *r, int enabled)
 }
 
 
+/**
+ * get enable_ntls
+ */
 ngx_flag_t
 ngx_http_apisix_is_ntls_enabled(ngx_http_conf_ctx_t *conf_ctx)
 {

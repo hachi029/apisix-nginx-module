@@ -26,13 +26,17 @@ typedef struct {
     EVP_PKEY            *upstream_pkey;
     X509_STORE          *upstream_trusted_store;
 
+    //动态设置 client_max_body_size
     off_t                client_max_body_size;
 
     ngx_http_apisix_gzip_t *gzip;
     ngx_http_log_handler_pt  orig_log_handler;
+    //标识是否动态设置了 client_max_body_size
     unsigned             client_max_body_size_set:1;
     unsigned             mirror_enabled:1;
+    //动态设置 proxy_request_buffering
     unsigned             request_buffering:1;
+    //标识是否动态设置了 request_buffering
     unsigned             request_buffering_set:1;
     unsigned             request_header_set:1;
     unsigned             header_filter_by_lua_skipped:1;
